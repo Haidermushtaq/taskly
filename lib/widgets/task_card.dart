@@ -1,7 +1,8 @@
 // widgets/task_card.dart
 // Reusable card that shows a single task: a status-colored rail down the left
 // edge, title, description, deadline (red when overdue), a colored status
-// chip, and optional actions. Kept presentational — it doesn't talk to
+// chip, a priority chip (low/medium/high), and optional actions. Kept
+// presentational — it doesn't talk to
 // Supabase itself. The parent screen passes the Task plus optional callbacks:
 //   - onAdvance: members use it to move the task to its next stage. When
 //     null (or the task is already done) no advance button is shown.
@@ -163,25 +164,30 @@ class TaskCard extends StatelessWidget {
                     const SizedBox(height: 12),
                     Row(
                       children: [
-                        // Colored status pill.
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 10, vertical: 5),
-                          decoration: BoxDecoration(
-                            color: color.shade50,
-                            borderRadius: BorderRadius.circular(20),
-                            border: Border.all(color: color.shade200),
-                          ),
-                          child: Text(
-                            statusLabel(task.status),
-                            style: TextStyle(
-                              color: color.shade800,
-                              fontWeight: FontWeight.w600,
-                              fontSize: 13,
-                            ),
+                        // The two pills sit in a Wrap so they drop to a second
+                        // line instead of overflowing on a narrow phone when
+                        // the advance button is also showing.
+                        Expanded(
+                          child: Wrap(
+                            spacing: 6,
+                            runSpacing: 6,
+                            children: [
+                              // Colored status pill.
+                              _Pill(
+                                label: statusLabel(task.status),
+                                color: color,
+                              ),
+                              // Priority pill, right beside the status so both
+                              // read at a glance on either dashboard. The flag
+                              // icon keeps it from looking like a status.
+                              _Pill(
+                                label: priorityLabel(task.priority),
+                                color: priorityColor(task.priority),
+                                icon: Icons.flag,
+                              ),
+                            ],
                           ),
                         ),
-                        const Spacer(),
                         // Advance button only when there's a next stage AND
                         // the parent gave us a callback to run.
                         if (next != null && onAdvance != null)
@@ -202,6 +208,46 @@ class TaskCard extends StatelessWidget {
             ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+// One small rounded pill: tinted background, matching border and text color,
+// with an optional leading icon. Used for both the status and the priority
+// chip so they look like the same family of labels.
+class _Pill extends StatelessWidget {
+  final String label;
+  final MaterialColor color;
+  final IconData? icon;
+
+  const _Pill({required this.label, required this.color, this.icon});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+      decoration: BoxDecoration(
+        color: color.shade50,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: color.shade200),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          if (icon != null) ...[
+            Icon(icon, size: 13, color: color.shade800),
+            const SizedBox(width: 4),
+          ],
+          Text(
+            label,
+            style: TextStyle(
+              color: color.shade800,
+              fontWeight: FontWeight.w600,
+              fontSize: 13,
+            ),
+          ),
+        ],
       ),
     );
   }

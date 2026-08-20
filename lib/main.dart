@@ -1,7 +1,11 @@
 // main.dart
-// App entry point. Does two jobs:
+// App entry point. Does three jobs:
 //   1. Initializes Supabase before the app runs (so auth/session is ready).
-//   2. Hosts the "auth gate": a widget that listens to auth state changes and
+//   2. Starts the notification service, which watches the tasks table over
+//      Supabase Realtime and raises a phone notification when a task is
+//      assigned to you or when a task you created changes status. It hooks
+//      itself onto the auth state, so it only runs while someone is logged in.
+//   3. Hosts the "auth gate": a widget that listens to auth state changes and
 //      shows LoginScreen when logged out, or TeamsScreen when logged in.
 // Roles are per-team now, so there is no global role routing here — the
 // teams screen routes into each team as admin or member.
@@ -9,6 +13,7 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'app_theme.dart';
+import 'services/notification_service.dart';
 import 'screens/splash_screen.dart';
 import 'screens/auth/login_screen.dart';
 import 'screens/teams/teams_screen.dart';
@@ -39,6 +44,10 @@ Future<void> main() async {
     url: supabaseUrl,
     anonKey: supabaseAnonKey,
   );
+
+  // Prepare notifications (permission prompt + realtime listeners). Must come
+  // after Supabase.initialize, because it uses the auth session.
+  await NotificationService.instance.init();
 
   runApp(const TasklyApp());
 }

@@ -1,8 +1,11 @@
 // screens/employee/my_tasks_screen.dart
 // What a team member sees when they open a team: the tasks in that team
 // assigned to them, as a list of TaskCards, each with a button to move the
-// task to its next stage (pending -> in_progress -> done). Uses setState
-// only: a loading flag, an error message, and the list of tasks.
+// task to its next stage (pending -> in_progress -> done), under a red banner
+// counting any of their tasks that are past their deadline and a search +
+// filter bar (text, status, priority — no assignee filter, since every task
+// here is already theirs). Uses setState only: a loading flag, an error
+// message, the list of tasks, and the current filter.
 
 import 'package:flutter/material.dart';
 import '../../models/team.dart';
@@ -10,6 +13,8 @@ import '../../models/task.dart';
 import '../../services/task_service.dart';
 import '../../widgets/task_card.dart';
 import '../../widgets/empty_state.dart';
+import '../../widgets/overdue_banner.dart';
+import '../../widgets/task_filter_bar.dart';
 import '../chat/chat_screen.dart';
 import '../chat/members_screen.dart';
 
@@ -28,6 +33,10 @@ class _MyTasksScreenState extends State<MyTasksScreen> {
   List<Task> _tasks = [];
   bool _loading = true;
   String? _error;
+
+  // What the filter bar is set to; kept across reloads so advancing a task
+  // doesn't reset your filters.
+  final _filter = TaskFilter();
 
   @override
   void initState() {
@@ -128,23 +137,49 @@ class _MyTasksScreenState extends State<MyTasksScreen> {
       );
     }
 
-    // Pull-to-refresh + a scrollable list of task cards.
-    return RefreshIndicator(
-      onRefresh: _loadTasks,
-      child: ListView.builder(
-        itemCount: _tasks.length,
-        itemBuilder: (context, index) {
-          final task = _tasks[index];
-          return TaskCard(
-            task: task,
-            // Only pass a callback when there's a next stage to move to.
-            onAdvance: task.nextStatus == null ? null : () => _advance(task),
-            // These tasks are all assigned to me, so skip "Assigned to" and
-            // just show who created the task.
-            showCreator: true,
-          );
-        },
-      ),
+    // Narrow the loaded list down to what matches the filter bar.
+    final visible = _filter.apply(_tasks);
+
+    // A pinned overdue banner and filter bar above a pull-to-refresh list of
+    // task cards. Both sit outside the ListView so they stay visible while
+    // scrolling; the banner renders nothing when no task is overdue.
+    // The banner counts ALL my tasks, not just the visible ones, so hiding
+    // something behind a filter can't hide the fact that it's overdue.
+    return Column(
+      children: [
+        OverdueBanner(tasks: _tasks),
+        // No assignee dropdown here: every task in this list is mine.
+        TaskFilterBar(
+          filter: _filter,
+          onChanged: () => setState(() {}),
+        ),
+        Expanded(
+          child: visible.isEmpty
+              ? const EmptyState(
+                  icon: Icons.search_off,
+                  message: 'No tasks match your search or filters.',
+                )
+              : RefreshIndicator(
+                  onRefresh: _loadTasks,
+                  child: ListView.builder(
+                    itemCount: visible.length,
+                    itemBuilder: (context, index) {
+                      final task = visible[index];
+                      return TaskCard(
+                        task: task,
+                        // Only pass a callback when there's a next stage.
+                        onAdvance: task.nextStatus == null
+                            ? null
+                            : () => _advance(task),
+                        // These tasks are all assigned to me, so skip
+                        // "Assigned to" and just show who created the task.
+                        showCreator: true,
+                      );
+                    },
+                  ),
+                ),
+        ),
+      ],
     );
   }
 }

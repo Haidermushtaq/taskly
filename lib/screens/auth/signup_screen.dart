@@ -6,10 +6,13 @@
 // AuthService.signUp; the `name` is stored in user metadata and a database
 // trigger auto-creates the profiles row. The confirmation email deep-links
 // back into the app. Shows a spinner while waiting and a SnackBar on error.
+// Below the form, SocialSignInButtons lets people skip the form entirely and
+// create their account with Google or Facebook instead.
 
 import 'package:flutter/material.dart';
 import '../../app_theme.dart';
 import '../../services/auth_service.dart';
+import '../../widgets/social_sign_in_buttons.dart';
 
 class SignupScreen extends StatefulWidget {
   const SignupScreen({super.key});
@@ -172,6 +175,8 @@ class _SignupScreenState extends State<SignupScreen> {
                                     onPressed: _signup,
                                     child: const Text('Create account'),
                                   ),
+                            // Google / Facebook, inside the same card.
+                            SocialSignInButtons(parentBusy: _loading),
                           ],
                         ),
                       ),

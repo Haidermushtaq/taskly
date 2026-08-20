@@ -4,11 +4,14 @@
 // Collects email + password (validated), calls AuthService.signIn, and shows
 // a spinner while waiting / a SnackBar on error. On success we do nothing
 // here: the AuthGate listens to auth state and swaps the screen automatically
-// once a session exists. A link at the bottom goes to signup.
+// once a session exists. Below the form, SocialSignInButtons offers Google
+// and Facebook as an alternative to email + password. A link at the bottom
+// goes to signup.
 
 import 'package:flutter/material.dart';
 import '../../app_theme.dart';
 import '../../services/auth_service.dart';
+import '../../widgets/social_sign_in_buttons.dart';
 import 'forgot_password_screen.dart';
 import 'signup_screen.dart';
 
@@ -178,6 +181,8 @@ class _LoginScreenState extends State<LoginScreen> {
                                     onPressed: _login,
                                     child: const Text('Log in'),
                                   ),
+                            // Google / Facebook, inside the same card.
+                            SocialSignInButtons(parentBusy: _loading),
                           ],
                         ),
                       ),

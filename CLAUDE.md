@@ -22,15 +22,20 @@ must be simple, readable, and explainable.
 lib/
   main.dart            # Supabase init + auth gate
   models/              # plain Dart classes (Profile, Team, TeamMember, Task, Message)
-  services/            # auth_service, team_service, task_service, chat_service
+  services/            # auth_service, team_service, task_service, chat_service,
+                       #   notification_service
   screens/
     auth/              # login_screen.dart, signup_screen.dart, forgot_password_screen.dart
     teams/             # teams_screen.dart (home: list/create/join teams)
-    admin/             # team dashboard, create/assign task, all tasks
+    admin/             # team dashboard, create/assign task, all tasks,
+                       #   team_summary_screen.dart (per-employee stats)
     employee/          # my_tasks_screen.dart (member view of a team)
     chat/              # chat_screen.dart (group + DM), members_screen.dart
-    profile/           # profile_screen.dart (my info, teams, tasks overview)
-  widgets/             # shared widgets (task_card, empty_state, logout_button)
+    profile/           # profile_screen.dart (my info, teams, tasks overview),
+                       #   settings_screen.dart (edit name, change password)
+  widgets/             # shared widgets (task_card, empty_state, logout_button,
+                       #   overdue_banner, social_sign_in_buttons,
+                       #   task_filter_bar)
 
 ## App Flow
 1. App starts -> Supabase.initialize in main.dart -> branded SplashScreen
@@ -43,16 +48,39 @@ lib/
    admin -> AdminDashboard, member -> MyTasksScreen
 5. Member: sees only tasks assigned to them in that team, can update task
    status (pending -> in_progress -> done)
-6. Admin: sees invite code (to share), task counts, creates tasks with an
-   optional deadline (due_at), assigns to any team member, sees all team
-   tasks, deletes tasks
+6. Admin: sees invite code (to share), task counts, creates tasks with a
+   priority and an optional deadline (due_at), assigns to any team member,
+   sees all team tasks, deletes tasks, opens the team summary
 7. Both roles, from a team's app bar: team group chat and the members list;
    tap a member to open a private (direct) chat. Chat is live via Supabase
    Realtime streams (StreamBuilder)
 8. Profile screen (person icon on teams screen): my name + email, all my
    teams with roles, all my tasks across teams grouped by status, with
-   deadlines and overdue markers
+   deadlines and overdue markers. The pencil in its app bar opens
+   SettingsScreen: edit display name (writes profiles.name) and change
+   password (updateUser on the live session — the in-app change, separate
+   from the emailed-code forgot-password flow)
 9. Logout from the teams screen app bar
+10. Notifications (in-app, no Firebase): notification_service.dart subscribes
+    to Postgres change events on `tasks` over Supabase Realtime while a
+    session exists. Members get "New task assigned to you" on INSERT where
+    assigned_to = me; admins get "Task status updated" on UPDATE where
+    created_by = me. Drawn with flutter_local_notifications. Requires
+    `alter publication supabase_realtime add table tasks;`
+11. Overdue visibility: OverdueBanner (a red "N tasks are past their deadline"
+    strip) sits at the top of both the admin dashboard and the member task
+    list, on top of the per-card red deadline line
+12. Priority: every task is low / medium / high (default medium), chosen by
+    the admin on the create-task form and shown as a flag chip on the task
+    card, so it is visible on both the admin and member lists
+13. Search & filter: TaskFilterBar sits above both task lists — free text over
+    title + description, plus status and priority dropdowns, plus an assignee
+    dropdown on the admin list only. Filtering is done in memory over the
+    already-fetched list (TaskFilter.apply), not with new queries
+14. Admin summary (TeamSummaryScreen, "Team summary" on the admin dashboard):
+    team-wide completed vs open with a progress bar and status counts, then
+    one card per team member with their pending / in progress / done /
+    overdue counts. All counted in memory from the team's task list
 
 ## Auth Details
 - Signup: supabase.auth.signUp with email + password, pass name in user
@@ -63,6 +91,13 @@ lib/
   and passed as emailRedirectTo). The redirect URL must be allowed in
   Supabase dashboard -> Auth -> URL Configuration
 - Login: signInWithPassword
+- Social sign-in: Google and Facebook via signInWithOAuth, offered on BOTH the
+  login and signup screens through the shared SocialSignInButtons widget
+  (a provider login doubles as a signup — Supabase creates the user on first
+  use and the handle_new_user trigger reads `name` from the provider metadata).
+  Redirects to the same io.supabase.taskly://login-callback/ deep link, which
+  must be listed in Supabase -> Auth -> URL Configuration. Provider client
+  IDs/secrets are configured in Supabase -> Auth -> Providers
 - Session is persisted automatically by supabase_flutter
 - Forgot password (OTP recovery, no deep links): "Forgot password?" link on
   the login screen opens forgot_password_screen.dart, one setState screen with
@@ -109,8 +144,15 @@ lib/
 - created_by uuid -> profiles(id)
 - team_id uuid -> teams(id) on delete cascade
 - status text: 'pending' | 'in_progress' | 'done', default 'pending'
+- priority text: 'low' | 'medium' | 'high', default 'medium', not null
+  (added after the first schema; run once in the SQL editor:
+   `alter table tasks add column if not exists priority text not null
+    default 'medium' check (priority in ('low','medium','high'));`)
 - due_at timestamptz (optional deadline; overdue = past due and not done)
 - created_at timestamptz
+
+Both `tasks` and `messages` must be in the supabase_realtime publication:
+`messages` for the live chat streams, `tasks` for the notification listeners.
 
 ### messages (chat; in supabase_realtime publication for live streams)
 - id uuid, primary key, default gen_random_uuid()

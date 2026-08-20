@@ -30,6 +30,45 @@ git-ignored `.env` file via `--dart-define-from-file`.
    flutter pub get
    ```
 
+## Supabase dashboard setup
+
+Two features need one-time configuration in the Supabase project. The app code
+is already done; without these steps those features silently do nothing.
+
+### Notifications (Realtime on `tasks`)
+
+Notifications are driven by Postgres change events on the `tasks` table, so
+that table has to be published to Realtime — `messages` already is. Run this
+once in the SQL editor:
+
+```sql
+alter publication supabase_realtime add table tasks;
+```
+
+Check it worked (the table should be listed):
+
+```sql
+select tablename from pg_publication_tables
+where pubname = 'supabase_realtime';
+```
+
+No Firebase, no Edge Function and no new table is involved: the app subscribes
+directly, and RLS still restricts what each user can receive.
+
+### Google and Facebook sign-in
+
+1. **Auth → Providers → Google**: enable it, and paste the Client ID and Client
+   Secret from a Google Cloud OAuth 2.0 **Web application** credential. In the
+   Google Cloud console, add Supabase's callback as an authorized redirect URI:
+   `https://<your-project-ref>.supabase.co/auth/v1/callback`
+2. **Auth → Providers → Facebook**: enable it, and paste the App ID and App
+   Secret from a Meta app (Facebook Login product added). Use the same callback
+   URL above as the Valid OAuth Redirect URI.
+3. **Auth → URL Configuration → Redirect URLs**: add
+   `io.supabase.taskly://login-callback/`
+   so Supabase is allowed to send the user back into the app. This is the same
+   deep link email confirmation already uses, so it may already be there.
+
 ## Running
 
 You must pass the env file on every run and build, or the app throws a clear
@@ -44,3 +83,21 @@ Build a release APK:
 ```
 flutter build apk --dart-define-from-file=.env
 ```
+
+## Notifications
+
+Task notifications are local notifications raised from Supabase Realtime
+events, not Firebase push. Each signed-in user opens two filtered channels on
+the `tasks` table (see `lib/services/notification_service.dart`):
+
+| Who | Event watched | Notification |
+| --- | --- | --- |
+| Member | `INSERT` where `assigned_to` = me | "New task assigned to you" |
+| Admin | `UPDATE` where `created_by` = me | "Task status updated" |
+
+Because this is an in-app socket rather than push, notifications arrive while
+the app is running. Delivering them with the app fully closed would require
+Firebase Cloud Messaging and a server-side sender.
+
+On first launch the app asks for notification permission (Android 13+ and
+iOS). If it was denied, re-enable it in the OS settings for Taskly.

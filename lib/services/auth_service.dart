@@ -25,6 +25,15 @@ class AuthService {
     return Profile.fromMap(data);
   }
 
+  // Change my display name. RLS on `profiles` allows a user to update only
+  // their own row, so no extra check is needed here. Every screen reads names
+  // from `profiles`, so this one write is enough for the new name to show up
+  // everywhere (teams, task cards, chat).
+  Future<void> updateMyName(String name) async {
+    final userId = _client.auth.currentUser!.id;
+    await _client.from('profiles').update({'name': name}).eq('id', userId);
+  }
+
   // Create a new account. We pass `name` in user metadata; a database trigger
   // reads that metadata and auto-creates the matching profiles row. Throws on
   // failure so the UI can show the error.
@@ -59,6 +68,34 @@ class AuthService {
     await _client.auth.signOut();
   }
 
+  // --- Social sign-in (Google / Facebook) ---
+
+  // Opens the provider's login page in the browser. When the user finishes,
+  // the provider sends them back to io.supabase.taskly://login-callback/ —
+  // the same deep link the email confirmation uses, already registered in
+  // AndroidManifest.xml and Info.plist. supabase_flutter catches that link,
+  // stores the session, and AuthGate swaps to the teams screen on its own.
+  //
+  // There is no separate "sign up with Google" call: the first time someone
+  // logs in with a provider, Supabase creates the auth user, and the same
+  // handle_new_user trigger creates their profiles row from the name the
+  // provider sent in the user metadata.
+  Future<void> signInWithGoogle() async {
+    await _signInWithProvider(OAuthProvider.google);
+  }
+
+  Future<void> signInWithFacebook() async {
+    await _signInWithProvider(OAuthProvider.facebook);
+  }
+
+  // Shared body of the two calls above — only the provider differs.
+  Future<void> _signInWithProvider(OAuthProvider provider) async {
+    await _client.auth.signInWithOAuth(
+      provider,
+      redirectTo: 'io.supabase.taskly://login-callback/',
+    );
+  }
+
   // --- Forgot password (OTP recovery flow, no deep links) ---
 
   // Step 1: email the user a 6-digit recovery code. We do NOT pass a
@@ -82,6 +119,9 @@ class AuthService {
   }
 
   // Step 3: set the new password on the now-recovered session.
+  // The settings screen reuses this call to change the password from inside
+  // the app — it's the same Supabase update, just on a normal session
+  // instead of a recovery one.
   Future<void> updatePassword({required String newPassword}) async {
     await _client.auth.updateUser(
       UserAttributes(password: newPassword),

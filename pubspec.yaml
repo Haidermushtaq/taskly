@@ -37,6 +37,7 @@ dependencies:
 
   # Supabase client for Flutter: auth + database access (our only backend).
   supabase_flutter: ^2.5.6
+  flutter_local_notifications: ^22.2.0
 
 dev_dependencies:
   flutter_test:

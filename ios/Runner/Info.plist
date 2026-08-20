@@ -41,6 +41,20 @@
 		<string>UIInterfaceOrientationLandscapeLeft</string>
 		<string>UIInterfaceOrientationLandscapeRight</string>
 	</array>
+	<!-- Registers the io.supabase.taskly:// deep link on iOS, the same one
+	     AndroidManifest.xml declares. Supabase sends the user back here after
+	     email confirmation and after Google / Facebook sign-in. -->
+	<key>CFBundleURLTypes</key>
+	<array>
+		<dict>
+			<key>CFBundleURLName</key>
+			<string>io.supabase.taskly</string>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>io.supabase.taskly</string>
+			</array>
+		</dict>
+	</array>
 	<key>CADisableMinimumFrameDurationOnPhone</key>
 	<true/>
 	<key>UIApplicationSupportsIndirectInputEvents</key>

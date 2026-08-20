@@ -1,9 +1,11 @@
 // screens/admin/admin_dashboard.dart
 // What a team's admin sees when they open their team: the invite code to
-// share (that's how members join), simple task counts (total / pending /
-// in progress / done), and a button into the team's task list. Uses setState
-// only: it loads the team's tasks once and counts them in memory. Refreshes
-// when returning from the task list, since tasks may have changed there.
+// share (that's how members join), a red banner when any task in the team is
+// past its deadline, simple task counts (total / pending /
+// in progress / done), and buttons into the team's task list and its summary
+// (per-employee breakdown). Uses setState only: it loads the team's tasks once
+// and counts them in memory. Refreshes when returning from the task list,
+// since tasks may have changed there.
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -11,9 +13,11 @@ import '../../app_theme.dart';
 import '../../models/team.dart';
 import '../../models/task.dart';
 import '../../services/task_service.dart';
+import '../../widgets/overdue_banner.dart';
 import '../chat/chat_screen.dart';
 import '../chat/members_screen.dart';
 import 'all_tasks_screen.dart';
+import 'team_summary_screen.dart';
 
 class AdminDashboard extends StatefulWidget {
   final Team team;
@@ -122,7 +126,9 @@ class _AdminDashboardState extends State<AdminDashboard> {
       );
     }
 
-    return Padding(
+    // Scrollable so the header, counts and both buttons still fit on a short
+    // screen.
+    return SingleChildScrollView(
       padding: const EdgeInsets.all(16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -191,6 +197,12 @@ class _AdminDashboardState extends State<AdminDashboard> {
             ),
           ),
           const SizedBox(height: 20),
+          // Red strip when this team has tasks past their deadline. Hides
+          // itself when there are none.
+          OverdueBanner(
+            tasks: _tasks,
+            margin: const EdgeInsets.only(bottom: 12),
+          ),
           Text(
             'Overview',
             style: Theme.of(context)
@@ -236,6 +248,17 @@ class _AdminDashboardState extends State<AdminDashboard> {
             onPressed: _openAllTasks,
             icon: const Icon(Icons.list_alt),
             label: const Text('Manage tasks'),
+          ),
+          const SizedBox(height: 12),
+          // Deeper view: who has what, and how much is finished.
+          OutlinedButton.icon(
+            onPressed: () => Navigator.of(context).push(
+              MaterialPageRoute(
+                builder: (_) => TeamSummaryScreen(team: widget.team),
+              ),
+            ),
+            icon: const Icon(Icons.insights),
+            label: const Text('Team summary'),
           ),
         ],
       ),

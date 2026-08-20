@@ -1,6 +1,7 @@
 // screens/admin/create_task_screen.dart
 // Admin form to create and assign a task inside one team. Loads the team's
-// roster for the "assign to" dropdown, collects a title + description, and
+// roster for the "assign to" dropdown, collects a title + description, a
+// priority (low/medium/high, default medium) and an optional deadline, then
 // calls TaskService.createTask. Uses setState only. On success it pops back
 // to the task list, returning `true` so that screen knows to refresh.
 
@@ -33,6 +34,8 @@ class _CreateTaskScreenState extends State<CreateTaskScreen> {
   String? _selectedUserId;
   // Optional deadline picked by the admin (null = no deadline).
   DateTime? _dueAt;
+  // How urgent the task is. Starts at 'medium', the database default.
+  String _priority = 'medium';
 
   bool _loadingMembers = true; // loading the dropdown data
   bool _saving = false; // running the insert
@@ -109,6 +112,7 @@ class _CreateTaskScreenState extends State<CreateTaskScreen> {
         title: title,
         description: _descriptionController.text.trim(),
         assignedTo: _selectedUserId!,
+        priority: _priority,
         dueAt: _dueAt,
       );
       if (mounted) Navigator.of(context).pop(true); // signal "created"
@@ -148,7 +152,9 @@ class _CreateTaskScreenState extends State<CreateTaskScreen> {
       );
     }
 
-    return Padding(
+    // Scrollable so the form still fits when the keyboard is up on a small
+    // screen.
+    return SingleChildScrollView(
       padding: const EdgeInsets.all(16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -176,7 +182,41 @@ class _CreateTaskScreenState extends State<CreateTaskScreen> {
                 .toList(),
             onChanged: (value) => setState(() => _selectedUserId = value),
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: 16),
+          // Priority picker: three segments, one per level, colored like the
+          // priority chip that will appear on the task card.
+          const Text(
+            'Priority',
+            style: TextStyle(fontWeight: FontWeight.w600),
+          ),
+          const SizedBox(height: 8),
+          Row(
+            children: priorityValues.map((value) {
+              final selected = value == _priority;
+              final color = priorityColor(value);
+              return Expanded(
+                child: Padding(
+                  padding: const EdgeInsets.only(right: 8),
+                  child: OutlinedButton(
+                    onPressed: () => setState(() => _priority = value),
+                    style: OutlinedButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(vertical: 12),
+                      backgroundColor:
+                          selected ? color.shade50 : Colors.transparent,
+                      foregroundColor:
+                          selected ? color.shade800 : Colors.grey.shade700,
+                      side: BorderSide(
+                        color: selected ? color.shade400 : Colors.grey.shade300,
+                        width: selected ? 2 : 1,
+                      ),
+                    ),
+                    child: Text(priorityLabel(value)),
+                  ),
+                ),
+              );
+            }).toList(),
+          ),
+          const SizedBox(height: 4),
           // Deadline row: pick (or clear) an optional due date + time.
           ListTile(
             contentPadding: EdgeInsets.zero,

@@ -6,7 +6,9 @@
 //   3. Every task assigned to me across all teams, grouped by status
 //      (pending / in progress / done), each with its deadline if set and a
 //      red "overdue" marker when the deadline has passed.
-// Read-only screen: all data loads once in initState. Uses setState only.
+// The pencil in the app bar opens SettingsScreen, where the name and the
+// password can actually be changed; we reload when it reports a change.
+// Otherwise read-only: all data loads once in initState. Uses setState only.
 
 import 'package:flutter/material.dart';
 import '../../app_theme.dart';
@@ -16,6 +18,7 @@ import '../../models/task.dart';
 import '../../services/auth_service.dart';
 import '../../services/team_service.dart';
 import '../../services/task_service.dart';
+import 'settings_screen.dart';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
@@ -68,10 +71,31 @@ class _ProfileScreenState extends State<ProfileScreen> {
   List<Task> _byStatus(String status) =>
       _tasks.where((t) => t.status == status).toList();
 
+  // Open the edit screen; it returns true when the name was saved, in which
+  // case we reload so the header shows the new one.
+  Future<void> _openSettings() async {
+    final changed = await Navigator.of(context).push<bool>(
+      MaterialPageRoute(
+        builder: (_) => SettingsScreen(currentName: _profile?.name ?? ''),
+      ),
+    );
+    if (changed == true) await _loadEverything();
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('My Profile')),
+      appBar: AppBar(
+        title: const Text('My Profile'),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.edit_outlined),
+            tooltip: 'Edit profile',
+            // Only once the profile has loaded, so we can prefill the name.
+            onPressed: _loading || _profile == null ? null : _openSettings,
+          ),
+        ],
+      ),
       body: _buildBody(),
     );
   }

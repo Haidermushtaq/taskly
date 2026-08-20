@@ -63,14 +63,15 @@ class TaskService {
         .toList();
   }
 
-  // Create and assign a task in this team, with an optional deadline.
-  // Only the team admin can insert (enforced by RLS). Status defaults to
-  // 'pending' in the database.
+  // Create and assign a task in this team, with a priority and an optional
+  // deadline. Only the team admin can insert (enforced by RLS). Status
+  // defaults to 'pending' in the database.
   Future<void> createTask({
     required String teamId,
     required String title,
     required String description,
     required String assignedTo,
+    required String priority,
     DateTime? dueAt,
   }) async {
     final myId = _client.auth.currentUser!.id;
@@ -80,6 +81,7 @@ class TaskService {
       'description': description,
       'assigned_to': assignedTo,
       'created_by': myId,
+      'priority': priority,
       'due_at': dueAt?.toUtc().toIso8601String(),
     });
   }

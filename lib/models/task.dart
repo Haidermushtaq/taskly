@@ -1,9 +1,10 @@
 // models/task.dart
 // Plain Dart class representing a row from the `tasks` table. Used by both the
-// employee "my tasks" list and (later) the admin screens. `fromMap` converts
+// employee "my tasks" list and the admin screens. `fromMap` converts
 // Supabase JSON into a typed Task. `nextStatus` encodes the allowed status
 // progression pending -> in_progress -> done so the UI knows what button to
-// show.
+// show. `priority` (low/medium/high) is set by the admin when creating the
+// task and is shown as a chip on every task card.
 
 class Task {
   final String id;
@@ -13,6 +14,7 @@ class Task {
   final String? createdBy;
   final String? teamId; // which team this task belongs to
   final String status; // 'pending' | 'in_progress' | 'done'
+  final String priority; // 'low' | 'medium' | 'high'
   final DateTime? dueAt; // optional deadline set by the admin
   // Display names behind assigned_to / created_by, filled in only when the
   // query joins profiles (see TaskService). Null when not fetched or unknown.
@@ -27,6 +29,7 @@ class Task {
     required this.createdBy,
     required this.teamId,
     required this.status,
+    required this.priority,
     required this.dueAt,
     this.assignedToName,
     this.createdByName,
@@ -42,6 +45,9 @@ class Task {
       createdBy: map['created_by'] as String?,
       teamId: map['team_id'] as String?,
       status: map['status'] as String,
+      // The column defaults to 'medium' in the database; the fallback here
+      // also covers rows created before the column existed.
+      priority: (map['priority'] ?? 'medium') as String,
       dueAt: map['due_at'] == null
           ? null
           : DateTime.parse(map['due_at'] as String).toLocal(),

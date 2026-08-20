@@ -47,6 +47,44 @@ String statusLabel(String status) {
   }
 }
 
+// One color per task priority, used on the priority chip on task cards and
+// in the filter bar: low = blue grey (quiet), medium = amber, high = red.
+// Deliberately different hues from the status colors so the two chips sitting
+// side by side never look like the same thing.
+MaterialColor priorityColor(String priority) {
+  switch (priority) {
+    case 'low':
+      return Colors.blueGrey;
+    case 'medium':
+      return Colors.amber;
+    case 'high':
+      return Colors.red;
+    default:
+      return Colors.grey;
+  }
+}
+
+// Human-friendly label for a priority value, e.g. high -> High.
+String priorityLabel(String priority) {
+  switch (priority) {
+    case 'low':
+      return 'Low';
+    case 'medium':
+      return 'Medium';
+    case 'high':
+      return 'High';
+    default:
+      return priority;
+  }
+}
+
+// The three priorities, most urgent first. Used to build dropdowns and the
+// create-task picker so the order is the same everywhere.
+const List<String> priorityValues = ['high', 'medium', 'low'];
+
+// The three statuses in workflow order. Used by the filter dropdowns.
+const List<String> statusValues = ['pending', 'in_progress', 'done'];
+
 // Deterministic avatar color from a name, so the same team/person always
 // gets the same color everywhere in the app.
 const List<MaterialColor> _avatarPalette = [

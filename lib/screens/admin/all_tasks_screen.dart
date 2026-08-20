@@ -1,7 +1,9 @@
 // screens/admin/all_tasks_screen.dart
 // Admin view of every task in one team. Each task shows as a TaskCard with a
-// delete button. A floating button opens the create-task screen; when that
-// screen reports it created a task, we refresh the list. Uses setState only.
+// delete button. A search + filter bar on top narrows the list by text,
+// status, priority or assignee — all in memory, over the tasks already
+// fetched. A floating button opens the create-task screen; when that screen
+// reports it created a task, we refresh the list. Uses setState only.
 
 import 'package:flutter/material.dart';
 import '../../models/team.dart';
@@ -9,6 +11,7 @@ import '../../models/task.dart';
 import '../../services/task_service.dart';
 import '../../widgets/task_card.dart';
 import '../../widgets/empty_state.dart';
+import '../../widgets/task_filter_bar.dart';
 import 'create_task_screen.dart';
 
 class AllTasksScreen extends StatefulWidget {
@@ -27,10 +30,27 @@ class _AllTasksScreenState extends State<AllTasksScreen> {
   bool _loading = true;
   String? _error;
 
+  // What the filter bar is currently set to. Held here so it survives list
+  // reloads (deleting a task keeps your filters in place).
+  final _filter = TaskFilter();
+
   @override
   void initState() {
     super.initState();
     _loadTasks();
+  }
+
+  // The people to offer in the assignee dropdown: everyone who actually has a
+  // task in this team, as user id -> name. Built from the tasks we already
+  // have, so no second query to the roster.
+  Map<String, String> get _assignees {
+    final map = <String, String>{};
+    for (final task in _tasks) {
+      if (task.assignedTo != null) {
+        map[task.assignedTo!] = task.assignedToName ?? 'Unknown';
+      }
+    }
+    return map;
   }
 
   Future<void> _loadTasks() async {
@@ -123,6 +143,7 @@ class _AllTasksScreenState extends State<AllTasksScreen> {
       );
     }
 
+    // Truly nothing in the team: no point showing a filter bar.
     if (_tasks.isEmpty) {
       return const EmptyState(
         icon: Icons.assignment_add,
@@ -130,22 +151,46 @@ class _AllTasksScreenState extends State<AllTasksScreen> {
       );
     }
 
-    return RefreshIndicator(
-      onRefresh: _loadTasks,
-      child: ListView.builder(
-        itemCount: _tasks.length,
-        itemBuilder: (context, index) {
-          final task = _tasks[index];
-          // Admin view: no advance button, but a delete button. Show who the
-          // task is assigned to (prominent) and who created it.
-          return TaskCard(
-            task: task,
-            onDelete: () => _delete(task),
-            showAssignee: true,
-            showCreator: true,
-          );
-        },
-      ),
+    // Narrow the loaded list down to what matches the filter bar.
+    final visible = _filter.apply(_tasks);
+
+    return Column(
+      children: [
+        // Admin gets the assignee dropdown too, since these are everyone's
+        // tasks. onChanged just rebuilds this screen with the new filter.
+        TaskFilterBar(
+          filter: _filter,
+          assignees: _assignees,
+          onChanged: () => setState(() {}),
+        ),
+        Expanded(
+          child: visible.isEmpty
+              // Filters matched nothing — say so, rather than showing the
+              // "create your first task" empty state, which would be wrong.
+              ? const EmptyState(
+                  icon: Icons.search_off,
+                  message: 'No tasks match your search or filters.',
+                )
+              : RefreshIndicator(
+                  onRefresh: _loadTasks,
+                  child: ListView.builder(
+                    itemCount: visible.length,
+                    itemBuilder: (context, index) {
+                      final task = visible[index];
+                      // Admin view: no advance button, but a delete button.
+                      // Show who the task is assigned to (prominent) and who
+                      // created it.
+                      return TaskCard(
+                        task: task,
+                        onDelete: () => _delete(task),
+                        showAssignee: true,
+                        showCreator: true,
+                      );
+                    },
+                  ),
+                ),
+        ),
+      ],
     );
   }
 }
